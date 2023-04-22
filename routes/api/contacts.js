@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Joi = require('joi');
+const mongoose = require('mongoose');
 
 const {
   listContacts,
@@ -23,11 +24,12 @@ router.get('/', async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   const contactId = req.params.id;
+  if (!mongoose.Types.ObjectId.isValid(contactId))
+    return res.status(404).json({ message: 'Not found' });
   try {
     const contact = await getContactById(contactId);
     res.status(200).json(contact);
   } catch (error) {
-    res.status(404).json({ message: 'Not found' });
     console.log(error);
     next(error);
   }
@@ -35,7 +37,6 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   const body = req.body;
-
   const schema = Joi.object().keys({
     name: Joi.string().required(),
     email: Joi.string()
@@ -47,7 +48,6 @@ router.post('/', async (req, res, next) => {
   const { error } = schema.validate(body);
   if (error)
     return res.status(400).json({ message: `${error.details[0].message}` });
-
   try {
     const contact = await addContact(body);
     res.status(201).send(contact);
@@ -59,9 +59,9 @@ router.post('/', async (req, res, next) => {
 
 router.delete('/:id', async (req, res, next) => {
   const contactId = req.params.id;
+  if (!mongoose.Types.ObjectId.isValid(contactId))
+    return res.status(404).json({ message: 'Not found' });
   try {
-    const contact = await getContactById(contactId);
-    if (!contact) return res.status(404).json({ message: 'Not found' });
     await removeContact(contactId);
     res.status(200).json({ message: 'contact deleted' });
   } catch (error) {
@@ -73,7 +73,8 @@ router.delete('/:id', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   const contactId = req.params.id;
   const body = req.body;
-
+  if (!mongoose.Types.ObjectId.isValid(contactId))
+    return res.status(404).json({ message: 'Not found' });
   if (Object.keys(body).length === 0)
     return res.status(400).json({ message: 'missing fields' });
 
@@ -85,12 +86,10 @@ router.put('/:id', async (req, res, next) => {
   });
   const { error } = schema.validate(body);
   if (error) return res.status(404).send(error.details[0].message);
-
   try {
     const updatedContact = await updateContact(contactId, body);
     res.status(200).send(updatedContact);
   } catch (error) {
-    res.status(404).json({ message: 'Not found' });
     console.log(error);
     next(error);
   }
@@ -99,6 +98,8 @@ router.put('/:id', async (req, res, next) => {
 router.patch('/:contactId/favorite', async (req, res, next) => {
   const contactId = req.params.contactId;
   const body = req.body;
+  if (!mongoose.Types.ObjectId.isValid(contactId))
+    return res.status(404).json({ message: 'Not found' });
 
   const schema = Joi.object().keys({
     favorite: Joi.boolean().required(),
@@ -108,14 +109,10 @@ router.patch('/:contactId/favorite', async (req, res, next) => {
 
   if (Object.keys(body).length === 0)
     return res.status(400).json({ message: 'missing field favorite' });
-
   try {
     const updatedContact = await updateStatusContact(contactId, body);
-    if (updatedContact) {
-      res.status(200).send(updatedContact);
-    } else return res.status(404).json({ message: 'Not found' });
+    res.status(200).send(updatedContact);
   } catch (error) {
-    res.status(404).json({ message: 'Not found' });
     console.log(error);
     next(error);
   }
