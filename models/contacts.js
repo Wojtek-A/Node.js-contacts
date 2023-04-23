@@ -34,6 +34,7 @@ const updateContact = (contactId, body) =>
 const updateStatusContact = (contactId, body) =>
   Contacts.findByIdAndUpdate(contactId, body, { new: true });
 
+
 module.exports = {
   listContacts,
   getContactById,
@@ -42,3 +43,4 @@ module.exports = {
   updateContact,
   updateStatusContact,
 };
+
