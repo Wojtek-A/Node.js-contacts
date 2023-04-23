@@ -1,68 +1,121 @@
-const express = require('express')
-const router = express.Router()
-const Joi = require('joi')
+const express = require('express');
+const router = express.Router();
+const Joi = require('joi');
+const mongoose = require('mongoose');
 
-const { listContacts, getContactById, removeContact, addContact, updateContact } = require("../../models/contacts")
+const {
+  listContacts,
+  getContactById,
+  removeContact,
+  addContact,
+  updateContact,
+  updateStatusContact,
+} = require('../../models/contacts');
 
 router.get('/', async (req, res, next) => {
-  const contacts = await listContacts()
-  res.status(200).json( contacts )
-})
+  try {
+    const contacts = await listContacts();
+    res.status(200).json(contacts);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
 
 router.get('/:id', async (req, res, next) => {
-  const contactId = req.params.id
-  const contact = await getContactById(contactId)
-  
-  if (!contact) return res.status(404).json({ "message": "Not found" })
-  
-  res.status(200).json(contact)
-})
+  const contactId = req.params.id;
+  if (!mongoose.Types.ObjectId.isValid(contactId))
+    return res.status(404).json({ message: 'Not found' });
+  try {
+    const contact = await getContactById(contactId);
+    res.status(200).json(contact);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
 
 router.post('/', async (req, res, next) => {
-  const body = req.body
-  
+  const body = req.body;
   const schema = Joi.object().keys({
     name: Joi.string().required(),
-    email: Joi.string().email().required(),
-    phone: Joi.string().required()
-  })
-  const { error } = schema.validate(body)
-  if (error) return res.status(400).json({"message": `${error.details[0].message}`});    
-
-  const contact = await addContact(body)
- 
-  res.status(201).send(contact)
-})
+    email: Joi.string()
+      .email()
+      .required(),
+    phone: Joi.string().required(),
+    favorite: Joi.boolean(),
+  });
+  const { error } = schema.validate(body);
+  if (error)
+    return res.status(400).json({ message: `${error.details[0].message}` });
+  try {
+    const contact = await addContact(body);
+    res.status(201).send(contact);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
 
 router.delete('/:id', async (req, res, next) => {
-  const contactId = req.params.id
-  const contact = await getContactById(contactId)
- 
-  if (!contact) return res.status(404).json({ "message": "Not found" })
-  
-  removeContact(contactId)
-  res.status(200).json({"message": "contact deleted"})
-})
-
+  const contactId = req.params.id;
+  if (!mongoose.Types.ObjectId.isValid(contactId))
+    return res.status(404).json({ message: 'Not found' });
+  try {
+    await removeContact(contactId);
+    res.status(200).json({ message: 'contact deleted' });
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
 
 router.put('/:id', async (req, res, next) => {
-  const contactId = req.params.id
-  const body = req.body
- 
-  if (Object.keys(body).length === 0) return res.status(400).json({ "message": "missing fields" });
-  
+  const contactId = req.params.id;
+  const body = req.body;
+  if (!mongoose.Types.ObjectId.isValid(contactId))
+    return res.status(404).json({ message: 'Not found' });
+  if (Object.keys(body).length === 0)
+    return res.status(400).json({ message: 'missing fields' });
+
   const schema = Joi.object().keys({
     name: Joi.string(),
     email: Joi.string().email(),
-    phone: Joi.string()
-  })
-  const { error } = schema.validate(body)
+    phone: Joi.string(),
+    favorite: Joi.boolean(),
+  });
+  const { error } = schema.validate(body);
   if (error) return res.status(404).send(error.details[0].message);
-  
-  const updatedContact = await updateContact(contactId, req.body);
-  if (updatedContact) { res.status(200).send(updatedContact) }
-  else return res.status(404).json({ "message": "Not found" });
-})
+  try {
+    const updatedContact = await updateContact(contactId, body);
+    res.status(200).send(updatedContact);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
 
+router.patch('/:contactId/favorite', async (req, res, next) => {
+  const contactId = req.params.contactId;
+  const body = req.body;
+  if (!mongoose.Types.ObjectId.isValid(contactId))
+    return res.status(404).json({ message: 'Not found' });
 
-module.exports = router
+  const schema = Joi.object().keys({
+    favorite: Joi.boolean().required(),
+  });
+  const { error } = schema.validate(body);
+  if (error) return res.status(404).send(error.details[0].message);
+
+  if (Object.keys(body).length === 0)
+    return res.status(400).json({ message: 'missing field favorite' });
+  try {
+    const updatedContact = await updateStatusContact(contactId, body);
+    res.status(200).send(updatedContact);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
+
+module.exports = router;
