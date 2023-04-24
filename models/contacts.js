@@ -16,6 +16,10 @@ const contact = new Schema({
     type: Boolean,
     default: false,
   },
+  owner: {
+    type: Schema.Types.ObjectId,
+    ref: 'user',
+  },
 });
 
 const Contacts = mongoose.model('contact', contact);
@@ -34,7 +38,6 @@ const updateContact = (contactId, body) =>
 const updateStatusContact = (contactId, body) =>
   Contacts.findByIdAndUpdate(contactId, body, { new: true });
 
-
 module.exports = {
   listContacts,
   getContactById,
@@ -43,4 +46,3 @@ module.exports = {
   updateContact,
   updateStatusContact,
 };
-
