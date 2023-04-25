@@ -11,7 +11,7 @@ const strategyOptions = {
 passport.use(
   new Strategy(strategyOptions, (payload, done) => {
     User.findOne({ _id: payload.id })
-      .then(([user]) => {
+      .then(user => {
         if (!user) {
           return done(new Error('User not found'));
         }
@@ -23,8 +23,10 @@ passport.use(
 
 const auth = (req, res, next) => {
   passport.authenticate('jwt', { session: false }, (error, user) => {
-    if (!user || error)
+    const token = req.headers.authorization.slice(7);
+    if (!user || error || token !== user.token)
       return res.status(401).json({ message: 'Not authorized' });
+    // console.log(user);
     req.user = user;
     next();
   })(req, res, next);

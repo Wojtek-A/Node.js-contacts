@@ -3,7 +3,7 @@ const router = express.Router();
 const Joi = require('joi');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-require('dotenv').config();
+require('dotenv').config({ path: '../../.env' });
 const { auth } = require('../../middleware');
 
 const {
