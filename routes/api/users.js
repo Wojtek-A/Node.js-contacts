@@ -4,14 +4,10 @@ const Joi = require('joi');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 require('dotenv').config({ path: '../../.env' });
-const { auth } = require('../../middleware');
+const { auth } = require('../../middlewares/authentication');
+const gravatar = require('gravatar');
 
-const {
-  getUserByEmail,
-  addUser,
-  getUserbyId,
-  updateUser,
-} = require('../../models/users');
+const { getUserByEmail, addUser, updateUser } = require('../../models/users');
 
 const hashingPassword = async password => {
   const salt = await bcrypt.genSalt(10);
@@ -39,10 +35,20 @@ router.post('/signup', async (req, res, next) => {
 
   const hashedPassword = await hashingPassword(password);
 
+  const getAvatarURL = gravatar.url(email, { s: '200', r: 'pg' });
+
   try {
-    const user = await addUser({ email, password: hashedPassword });
+    const user = await addUser({
+      email,
+      password: hashedPassword,
+      avatarURL: getAvatarURL,
+    });
     res.status(201).json({
-      user: { email: `${user.email}`, subscription: `${user.subscription}` },
+      user: {
+        email: `${user.email}`,
+        subscription: `${user.subscription}`,
+        avatarURL: `${getAvatarURL}`,
+      },
     });
   } catch (error) {
     console.log(error);
