@@ -6,7 +6,6 @@ const morgan = require('morgan');
 const contactsRouter = require('./routes/api/contacts');
 const usersRouter = require('./routes/api/users');
 const avatarRouter = require('./routes/api/avatar');
-const usersAvatarRouter = require('./routes/api/avatars');
 const { AVATAR_DIR } = require('./middlewares/upload');
 
 const app = express();
@@ -20,8 +19,7 @@ app.use(morgan('dev'));
 
 app.use('/api/contacts', contactsRouter);
 app.use('/api/users', usersRouter);
-app.use('/avatars', avatarRouter, express.static(AVATAR_DIR));
-app.use('/users', usersAvatarRouter);
+app.use('/api/avatars', avatarRouter, express.static(AVATAR_DIR));
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Not found' });
