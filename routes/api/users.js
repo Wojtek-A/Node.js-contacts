@@ -1,17 +1,24 @@
 const express = require('express');
 const router = express.Router();
+require('dotenv').config({ path: '../../.env' });
 const Joi = require('joi');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const fs = require('fs/promises');
 const path = require('path');
 const Jimp = require('jimp');
-require('dotenv').config({ path: '../../.env' });
+const sgMail = require('@sendgrid/mail');
+const { v4: uuidv4 } = require('uuid');
 const { auth } = require('../../middlewares/authentication');
 const { upload } = require('../../middlewares/upload');
 const gravatar = require('gravatar');
 
-const { getUserByEmail, addUser, updateUser } = require('../../models/users');
+const {
+  getUserByEmail,
+  addUser,
+  updateUser,
+  getUserbyVerificationToken,
+} = require('../../models/users');
 const { AVATAR_DIR } = require('../../middlewares/upload');
 
 const hashingPassword = async password => {
@@ -22,9 +29,20 @@ const hashingPassword = async password => {
 const validatePassword = async (password, hash) =>
   bcrypt.compare(password, hash);
 
+const sendMail = async user => {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  const emailConfig = {
+    from: `${process.env.EMAIL_ADDRESS}`,
+    to: `${user.email}`,
+    subject: 'Email verification',
+    html: `<a href=http://localhost:3000/api/users/verify/${user.verificationToken}>Verification Link</a>`,
+  };
+
+  await sgMail.send(emailConfig);
+};
+
 router.post('/signup', async (req, res, next) => {
   const { password, email } = req.body;
-
   const schema = Joi.object().keys({
     password: Joi.string().required(),
     email: Joi.string()
@@ -42,17 +60,22 @@ router.post('/signup', async (req, res, next) => {
 
   const getAvatarURL = gravatar.url(email, { s: '200', r: 'pg' });
 
+  const getVerificationToken = uuidv4();
   try {
     const user = await addUser({
       email,
       password: hashedPassword,
       avatarURL: getAvatarURL,
+      verificationToken: getVerificationToken,
     });
+
+    sendMail(user);
+
     res.status(201).json({
       user: {
         email: user.email,
         subscription: user.subscription,
-        avatarURL: getAvatarURL,
+        avatarURL: user.avatarURL,
       },
     });
   } catch (error) {
@@ -78,6 +101,9 @@ router.post('/login', async (req, res, next) => {
 
   if (!user)
     return res.status(401).json({ message: 'Email or password is wrong' });
+
+  if (user.verify === false && user.verificationToken !== null)
+    return res.status(401).json({ message: 'Please verify email' });
 
   const passwordValidation = await validatePassword(password, user.password);
   if (!passwordValidation)
@@ -148,5 +174,50 @@ router.patch(
     }
   }
 );
+
+router.get('/verify/:verificationToken', async (req, res, next) => {
+  const verificationToken = req.params.verificationToken;
+  if (!verificationToken) return res.status(400);
+  try {
+    const user = await getUserbyVerificationToken(verificationToken);
+    if (user === null)
+      return res.status(404).json({ message: 'User not found' });
+    await updateUser(user.id, { verify: true, verificationToken: null });
+    return res.status(200).json({ message: 'Verification successful' });
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
+
+router.post('/verify', async (req, res, next) => {
+  const { email } = req.body;
+
+  const schema = Joi.object().keys({
+    email: Joi.string()
+      .email()
+      .required(),
+  });
+  const { error } = schema.validate(req.body);
+  if (error)
+    return res.status(400).json({ message: `${error.details[0].message}` });
+
+  const user = await getUserByEmail(email);
+
+  if (!user) return res.status(400).json({ message: 'Email is wrong' });
+
+  if (user.verify === true && user.verificationToken === null)
+    return res
+      .status(400)
+      .json({ message: 'Verification has already been passed' });
+
+  try {
+    sendMail(user);
+    return res.status(200).json({ message: 'Verification email sent' });
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
 
 module.exports = router;
