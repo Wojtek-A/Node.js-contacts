@@ -23,6 +23,14 @@ const user = new Schema({
   avatarURL: {
     type: String,
   },
+  verify: {
+    type: Boolean,
+    default: false,
+  },
+  verificationToken: {
+    type: String,
+    required: [true, 'Verify token is required'],
+  },
 });
 
 const User = mongoose.model('user', user);
@@ -35,4 +43,14 @@ const getUserbyId = id => User.findById(id);
 
 const updateUser = (id, key) => User.findByIdAndUpdate(id, key, { new: true });
 
-module.exports = { User, getUserByEmail, addUser, getUserbyId, updateUser };
+const getUserbyVerificationToken = verificationToken =>
+  User.findOne({ verificationToken });
+
+module.exports = {
+  User,
+  getUserByEmail,
+  addUser,
+  getUserbyId,
+  updateUser,
+  getUserbyVerificationToken,
+};
